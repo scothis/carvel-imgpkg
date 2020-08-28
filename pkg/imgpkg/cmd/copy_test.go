@@ -11,7 +11,7 @@ func TestMultiDest(t *testing.T) {
 		t.Fatalf("Expected Run() to err")
 	}
 
-	if !strings.Contains(err.Error(), "Expected either --tar or --repo destination") {
+	if !strings.Contains(err.Error(), "Expected either --to-tar or --to-repo") {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
 }
@@ -22,14 +22,14 @@ func TestNoDest(t *testing.T) {
 		t.Fatalf("Expected Run() to err")
 	}
 
-	if !strings.Contains(err.Error(), "Expected either --tar or --repo destination") {
+	if !strings.Contains(err.Error(), "Expected either --to-tar or --to-repo") {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
 
 }
 
 func TestMultiSrc(t *testing.T) {
-	err := (&CopyOptions{BundleLockSrc: "foo", ImageSrc: "bar"}).Run()
+	err := (&CopyOptions{LockSrc: "foo", ImageSrc: "bar"}).Run()
 	if err == nil {
 		t.Fatalf("Expected Run() to err")
 	}
@@ -50,4 +50,8 @@ func TestNoSrc(t *testing.T) {
 		t.Fatalf("Expected error message related to destinations, got: %s", err)
 	}
 
+}
+
+func TestTarSrcWithTarDst(t *testing.T) {
+	t.Skip("implement the test")
 }

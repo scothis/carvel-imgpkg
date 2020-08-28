@@ -40,6 +40,18 @@ type ImageLocation struct {
 	OriginalTag string `yaml:"tag,omitempty"`
 }
 
+type Lock struct {
+	ApiVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
+}
+
+func ReadLockFile(path string) (Lock, error) {
+	var lock Lock
+	err := readPathInto(path, &lock)
+
+	return lock, err
+}
+
 func ReadBundleLockFile(path string) (BundleLock, error) {
 	var bundleLock BundleLock
 	err := readPathInto(path, &bundleLock)

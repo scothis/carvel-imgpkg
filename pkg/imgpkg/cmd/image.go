@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -34,15 +33,4 @@ func (i Image) Description() string {
 	}
 
 	return strings.TrimSpace(string(yamlBytes))
-}
-
-func ImageWithRepository(img string, repo string) (string, error) {
-	parts := strings.Split(img, "@")
-	if len(parts) != 2 {
-		return "", fmt.Errorf("Parsing image URL: %s", img)
-	}
-	digest := parts[1]
-
-	newURL := repo + "@" + digest
-	return newURL, nil
 }

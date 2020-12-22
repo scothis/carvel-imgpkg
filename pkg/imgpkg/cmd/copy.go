@@ -12,6 +12,7 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
@@ -410,7 +411,7 @@ func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundl
 			continue
 		}
 
-		newURL, err := ImageWithRepository(img.URL, bundleRepo)
+		newURL, err := bundle.ImageWithRepository(img.URL, bundleRepo)
 		if err != nil {
 			return nil, err
 		}

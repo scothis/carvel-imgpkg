@@ -65,6 +65,7 @@ func (c BundleLock) Validate() error {
 }
 
 func (c BundleLock) AsBytes() ([]byte, error) {
+	// TODO check if we want to add a --- before the yaml block
 	bs, err := yaml.Marshal(c)
 	if err != nil {
 		return nil, fmt.Errorf("Marshaling config: %s", err)

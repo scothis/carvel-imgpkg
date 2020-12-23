@@ -23,6 +23,7 @@ func NewTarImage(files []string, excludePaths []string, infoLog io.Writer) *TarI
 	return &TarImage{files, excludePaths, infoLog}
 }
 
+// TODO consolidate the next 2 funcs
 func (i *TarImage) AsFileBundle() (*FileImage, error) {
 	return i.asFileImage(true)
 }

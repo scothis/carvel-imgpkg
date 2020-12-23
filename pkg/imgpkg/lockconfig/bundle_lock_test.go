@@ -26,3 +26,20 @@ bundle:
 		t.Fatalf("Expected err to check digest form, but err was: '%s'", err)
 	}
 }
+
+func TestBundleLockWithUnknownKeys(t *testing.T) {
+	data := `
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: BundleLock
+spec:
+  image: nginx:v1
+`
+
+	_, err := lockconfig.NewBundleLockFromBytes([]byte(data))
+	if err == nil {
+		t.Fatalf("Expected non-nil error")
+	}
+	if !strings.Contains(err.Error(), `unknown field "spec"`) {
+		t.Fatalf("Expected error for unknown key, got: %s", err)
+	}
+}

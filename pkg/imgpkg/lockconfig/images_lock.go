@@ -38,7 +38,7 @@ func NewImagesLockFromPath(path string) (ImagesLock, error) {
 func NewImagesLockFromBytes(data []byte) (ImagesLock, error) {
 	var lock ImagesLock
 
-	err := yaml.Unmarshal(data, &lock)
+	err := yaml.UnmarshalStrict(data, &lock)
 	if err != nil {
 		return lock, fmt.Errorf("Unmarshaling images lock: %s", err)
 	}

@@ -26,3 +26,21 @@ images:
 		t.Fatalf("Expected err to check digest form, but err was: '%s'", err)
 	}
 }
+
+func TestImagesLockWithUnknownKeys(t *testing.T) {
+	data := `
+apiVersion: imgpkg.carvel.dev/v1alpha1
+kind: ImagesLock
+spec:
+  images:
+  - image: nginx:v1
+`
+
+	_, err := lockconfig.NewImagesLockFromBytes([]byte(data))
+	if err == nil {
+		t.Fatalf("Expected non-nil error")
+	}
+	if !strings.Contains(err.Error(), `unknown field "spec"`) {
+		t.Fatalf("Expected error for unknown key, got: %s", err)
+	}
+}

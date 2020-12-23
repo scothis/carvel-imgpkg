@@ -38,7 +38,7 @@ func NewBundleLockFromPath(path string) (BundleLock, error) {
 func NewBundleLockFromBytes(data []byte) (BundleLock, error) {
 	var lock BundleLock
 
-	err := yaml.Unmarshal(data, &lock)
+	err := yaml.UnmarshalStrict(data, &lock)
 	if err != nil {
 		return lock, fmt.Errorf("Unmarshaling bundle lock: %s", err)
 	}

@@ -8,12 +8,11 @@ import (
 
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	fake "github.com/google/go-containerregistry/pkg/v1/fake"
-	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 )
 
 func TestIsBundle_ImageIsBundle(t *testing.T) {
 	labels := make(map[string]string)
-	labels[image.BundleConfigLabel] = "foo"
+	labels[BundleConfigLabel] = "foo"
 
 	img := fakeImage(labels)
 

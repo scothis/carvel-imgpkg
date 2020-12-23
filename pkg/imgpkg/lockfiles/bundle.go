@@ -16,6 +16,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const BundleConfigLabel = "dev.carvel.imgpkg.bundle"
+
 type Bundle struct {
 	URL   string
 	Tag   string
@@ -27,7 +29,7 @@ func IsBundle(img regv1.Image) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, present := cfg.Config.Labels[image.BundleConfigLabel]
+	_, present := cfg.Config.Labels[BundleConfigLabel]
 	return present, nil
 }
 

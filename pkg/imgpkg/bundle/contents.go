@@ -11,6 +11,7 @@ import (
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
+	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 )
 
 type Contents struct {
@@ -28,32 +29,28 @@ func (b Contents) Push(uploadRef regname.Tag, registry ctlimg.Registry, ui ui.UI
 		return "", err
 	}
 
-	tarImg := ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui})
+	labels := map[string]string{BundleConfigLabel: "true"}
+	return plainimage.NewContents(b.paths, b.excludedPaths).Push(uploadRef, labels, registry, ui)
+}
 
-	img, err := tarImg.AsFileBundle()
+func (b Contents) PresentsAsBundle() (bool, error) {
+	imgpkgDirs, err := b.findImgpkgDirs()
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
-	defer img.Remove()
-
-	err = registry.WriteImage(uploadRef, img)
+	err = b.validateImgpkgDirs(imgpkgDirs)
 	if err != nil {
-		return "", fmt.Errorf("Writing '%s': %s", uploadRef.Name(), err)
+		return false, err
 	}
 
-	digest, err := img.Digest()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s@%s", uploadRef.Context(), digest), nil
+	return true, nil
 }
 
 func (b Contents) validate(registry ctlimg.Registry) error {
 	imgpkgDirs, err := b.findImgpkgDirs()
 	if err != nil {
-		return nil
+		return err
 	}
 
 	err = b.validateImgpkgDirs(imgpkgDirs)
@@ -75,7 +72,7 @@ func (b Contents) validate(registry ctlimg.Registry) error {
 		return fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
 	}
 
-	return b.checkRepeatedPaths()
+	return nil
 }
 
 func (b Contents) checkForBundles(reg ctlimg.Registry, imageRefs []lockconfig.ImageRef) ([]string, error) {
@@ -153,44 +150,4 @@ func (b Contents) validateImgpkgDirs(imgpkgDirs []string) error {
 	}
 
 	return fmt.Errorf("Expected '%s' directory, to be a direct child of one of: %s; was %s", lf.BundleDir, strings.Join(b.paths, ", "), path)
-}
-
-func (b Contents) checkRepeatedPaths() error {
-	imageRootPaths := make(map[string][]string)
-	for _, flagPath := range b.paths {
-		err := filepath.Walk(flagPath, func(currPath string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			imageRootPath, err := filepath.Rel(flagPath, currPath)
-			if err != nil {
-				return err
-			}
-
-			if imageRootPath == "." {
-				if info.IsDir() {
-					return nil
-				}
-				imageRootPath = filepath.Base(flagPath)
-			}
-			imageRootPaths[imageRootPath] = append(imageRootPaths[imageRootPath], currPath)
-			return nil
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	var repeatedPaths []string
-	for _, v := range imageRootPaths {
-		if len(v) > 1 {
-			repeatedPaths = append(repeatedPaths, v...)
-		}
-	}
-	if len(repeatedPaths) > 0 {
-		return fmt.Errorf("Found duplicate paths: %s", strings.Join(repeatedPaths, ", "))
-	}
-	return nil
 }

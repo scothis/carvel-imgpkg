@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -85,8 +84,8 @@ func TestImageWithImgpkgDirError(t *testing.T) {
 		t.Fatalf("Expected validations to err, but did not")
 	}
 
-	reg := regexp.MustCompile("Images cannot be pushed with '.imgpkg' directories.*, consider using a bundle")
-	if !reg.MatchString(err.Error()) {
+	expected := "Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option"
+	if err.Error() != expected {
 		t.Fatalf("Expected error to contain message about image with bundle dir, got: %s", err)
 	}
 }

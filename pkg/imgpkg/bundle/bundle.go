@@ -12,6 +12,8 @@ import (
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
+const BundleConfigLabel = "dev.carvel.imgpkg.bundle"
+
 type Bundle struct {
 	ref      string
 	registry ctlimg.Registry

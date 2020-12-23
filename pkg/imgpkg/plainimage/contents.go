@@ -9,7 +9,6 @@ import (
 	"github.com/cppforlife/go-cli-ui/ui"
 	regname "github.com/google/go-containerregistry/pkg/name"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
-	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
 type Contents struct {
@@ -21,7 +20,7 @@ func NewContents(paths []string, excludedPaths []string) Contents {
 	return Contents{paths: paths, excludedPaths: excludedPaths}
 }
 
-func (b Contents) Push(uploadRef regname.Tag, registry ctlimg.Registry, ui ui.UI) (string, error) {
+func (b Contents) Push(uploadRef regname.Tag, labels map[string]string, registry ctlimg.Registry, ui ui.UI) (string, error) {
 	err := b.validate()
 	if err != nil {
 		return "", err
@@ -29,7 +28,7 @@ func (b Contents) Push(uploadRef regname.Tag, registry ctlimg.Registry, ui ui.UI
 
 	tarImg := ctlimg.NewTarImage(b.paths, b.excludedPaths, InfoLog{ui})
 
-	img, err := tarImg.AsFileImage()
+	img, err := tarImg.AsFileImage(labels)
 	if err != nil {
 		return "", err
 	}
@@ -50,47 +49,7 @@ func (b Contents) Push(uploadRef regname.Tag, registry ctlimg.Registry, ui ui.UI
 }
 
 func (b Contents) validate() error {
-	imgpkgDirs, err := b.findImgpkgDirs()
-	if err != nil {
-		return nil
-	}
-
-	if len(imgpkgDirs) > 0 {
-		return fmt.Errorf("Images cannot be pushed with '%s' directories (found %d at '%s'), consider using a bundle",
-			lf.BundleDir, len(imgpkgDirs), strings.Join(imgpkgDirs, ","))
-	}
-
 	return b.checkRepeatedPaths()
-}
-
-func (b *Contents) findImgpkgDirs() ([]string, error) {
-	var bundlePaths []string
-	for _, path := range b.paths {
-		err := filepath.Walk(path, func(currPath string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if filepath.Base(currPath) != lf.BundleDir {
-				return nil
-			}
-
-			currPath, err = filepath.Abs(currPath)
-			if err != nil {
-				return err
-			}
-
-			bundlePaths = append(bundlePaths, currPath)
-
-			return nil
-		})
-
-		if err != nil {
-			return []string{}, err
-		}
-	}
-
-	return bundlePaths, nil
 }
 
 func (b Contents) checkRepeatedPaths() error {

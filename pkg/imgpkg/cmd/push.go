@@ -130,5 +130,13 @@ func (o *PushOptions) pushImage(registry ctlimg.Registry) (string, error) {
 		return "", fmt.Errorf("Parsing '%s': %s", o.ImageFlags.Image, err)
 	}
 
-	return plainimage.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).Push(uploadRef, registry, o.ui)
+	isBundle, err := bundle.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).PresentsAsBundle()
+	if err != nil {
+		return "", err
+	}
+	if isBundle {
+		return "", fmt.Errorf("Images cannot be pushed with '.imgpkg' directories, consider using --bundle (-b) option")
+	}
+
+	return plainimage.NewContents(o.FileFlags.Files, o.FileFlags.ExcludedFilePaths).Push(uploadRef, nil, registry, o.ui)
 }

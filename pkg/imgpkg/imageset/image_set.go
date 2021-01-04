@@ -42,8 +42,7 @@ func (o ImageSet) Export(foundImages *UnprocessedImageURLs,
 	var refs []imagedesc.Metadata
 
 	for _, img := range foundImages.All() {
-		// Validate strictly as these refs were already resolved
-
+		// TODO use regname.NewDigest
 		ref, err := regname.ParseReference(img.URL)
 		if err != nil {
 			return nil, err
@@ -79,6 +78,7 @@ func (o *ImageSet) Import(imgOrIndexes []imagedesc.ImageOrIndex,
 			importThrottle.Take()
 			defer importThrottle.Done()
 
+			// TODO use regname.NewDigest
 			existingRef, err := regname.ParseReference(item.Ref())
 			if err != nil {
 				errCh <- err

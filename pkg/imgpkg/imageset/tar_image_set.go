@@ -55,12 +55,13 @@ func (o TarImageSet) Export(foundImages *UnprocessedImageURLs,
 
 func (o *TarImageSet) Import(path string,
 	importRepo regname.Repository, registry ctlimg.Registry) (*ProcessedImages, string, error) {
-	//return img or indexes and call image set import later
+
 	imgOrIndexes, err := imagetar.NewTarReader(path).Read()
 	if err != nil {
 		return nil, "", err
 	}
 
+	// TODO get rid of bundle detection logic from here
 	bundleRef := ""
 	for _, imgOrIndex := range imgOrIndexes {
 		if imgOrIndex.Index != nil {

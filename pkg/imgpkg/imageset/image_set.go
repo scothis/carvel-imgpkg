@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package imageset
 
 import (
 	"fmt"
@@ -16,6 +16,10 @@ import (
 type ImageSet struct {
 	concurrency int
 	logger      *ctlimg.LoggerPrefixWriter
+}
+
+func NewImageSet(concurrency int, logger *ctlimg.LoggerPrefixWriter) ImageSet {
+	return ImageSet{concurrency, logger}
 }
 
 func (o ImageSet) Relocate(foundImages *UnprocessedImageURLs,

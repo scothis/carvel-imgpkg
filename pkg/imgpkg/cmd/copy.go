@@ -15,6 +15,7 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
+	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -84,19 +85,19 @@ func (o *CopyOptions) Run() error {
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}
-	imageSet := ImageSet{o.Concurrency, prefixedLogger}
+	imageSet := ctlimgset.NewImageSet(o.Concurrency, prefixedLogger)
 
 	var importRepo regname.Repository
-	var unprocessedImageUrls *UnprocessedImageURLs
+	var unprocessedImageUrls *ctlimgset.UnprocessedImageURLs
 	var bundleURL string
-	var processedImages *ProcessedImages
+	var processedImages *ctlimgset.ProcessedImages
 	switch {
 	case o.isTarSrc():
 		importRepo, err = regname.NewRepository(o.RepoDst)
 		if err != nil {
 			return fmt.Errorf("Building import repository ref: %s", err)
 		}
-		tarImageSet := TarImageSet{imageSet, o.Concurrency, prefixedLogger}
+		tarImageSet := ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger)
 		processedImages, bundleURL, err = tarImageSet.Import(o.TarFlags.TarSrc, importRepo, registry)
 	case o.isRepoSrc() && o.isTarDst():
 		if o.LockOutputFlags.LockFilePath != "" {
@@ -115,7 +116,7 @@ func (o *CopyOptions) Run() error {
 			}
 		}
 
-		tarImageSet := TarImageSet{imageSet, o.Concurrency, prefixedLogger}
+		tarImageSet := ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger)
 		err = tarImageSet.Export(unprocessedImageUrls, o.TarFlags.TarDst, registry) // download to tar
 	case o.isRepoSrc() && o.isRepoDst():
 		unprocessedImageUrls, bundleURL, err = o.GetUnprocessedImageURLs()
@@ -183,8 +184,8 @@ func (o *CopyOptions) hasOneSrc() bool {
 	return seen
 }
 
-func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, error) {
-	unprocessedImageURLs := NewUnprocessedImageURLs()
+func (o *CopyOptions) GetUnprocessedImageURLs() (*ctlimgset.UnprocessedImageURLs, string, error) {
+	unprocessedImageURLs := ctlimgset.NewUnprocessedImageURLs()
 	var bundleRef string
 	reg, err := image.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 	if err != nil {
@@ -252,7 +253,7 @@ func (o *CopyOptions) GetUnprocessedImageURLs() (*UnprocessedImageURLs, string, 
 		}
 
 		imageTag := getTag(parsedRef)
-		unprocessedImageURLs.Add(UnprocessedImageURL{o.ImageFlags.Image, imageTag})
+		unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{o.ImageFlags.Image, imageTag})
 
 	default:
 		bundleRef = o.BundleFlags.Bundle
@@ -340,16 +341,16 @@ func checkIfBundle(img regv1.Image, expectsBundle bool, errMsg error) error {
 
 // And images and bundle reference to unprocessedImageURLs.
 // Exclude passing Bundle reference by passing nil.
-func collectURLs(images []lf.ImageDesc, bundle *lf.Bundle, unprocessedImageURLs *UnprocessedImageURLs) {
+func collectURLs(images []lf.ImageDesc, bundle *lf.Bundle, unprocessedImageURLs *ctlimgset.UnprocessedImageURLs) {
 	for _, img := range images {
-		unprocessedImageURLs.Add(UnprocessedImageURL{URL: img.Image})
+		unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: img.Image})
 	}
 	if bundle != nil {
-		unprocessedImageURLs.Add(UnprocessedImageURL{URL: bundle.URL, Tag: bundle.Tag})
+		unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: bundle.URL, Tag: bundle.Tag})
 	}
 }
 
-func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleURL string) error {
+func (o *CopyOptions) writeLockOutput(processedImages *ctlimgset.ProcessedImages, bundleURL string) error {
 	var outBytes []byte
 	var err error
 
@@ -397,8 +398,8 @@ func (o *CopyOptions) writeLockOutput(processedImages *ProcessedImages, bundleUR
 	return ioutil.WriteFile(o.LockOutputFlags.LockFilePath, outBytes, 0700)
 }
 
-func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundleURL string, registry ctlimg.Registry) (*UnprocessedImageURLs, error) {
-	checkedURLs := NewUnprocessedImageURLs()
+func checkBundleRepoForCollocatedImages(foundImages *ctlimgset.UnprocessedImageURLs, bundleURL string, registry ctlimg.Registry) (*ctlimgset.UnprocessedImageURLs, error) {
+	checkedURLs := ctlimgset.NewUnprocessedImageURLs()
 	bundleRef, err := regname.ParseReference(bundleURL)
 	if err != nil {
 		return nil, err
@@ -422,7 +423,7 @@ func checkBundleRepoForCollocatedImages(foundImages *UnprocessedImageURLs, bundl
 
 		_, err = registry.Generic(ref)
 		if err == nil {
-			checkedURLs.Add(UnprocessedImageURL{newURL, img.Tag})
+			checkedURLs.Add(ctlimgset.UnprocessedImageURL{newURL, img.Tag})
 		} else {
 			checkedURLs.Add(img)
 		}

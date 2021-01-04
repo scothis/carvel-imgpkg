@@ -1,7 +1,7 @@
 // Copyright 2020 VMware, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package cmd
+package imageset
 
 import (
 	"fmt"
@@ -18,6 +18,10 @@ type TarImageSet struct {
 	imageSet    ImageSet
 	concurrency int
 	logger      *ctlimg.LoggerPrefixWriter
+}
+
+func NewTarImageSet(imageSet ImageSet, concurrency int, logger *ctlimg.LoggerPrefixWriter) TarImageSet {
+	return TarImageSet{imageSet, concurrency, logger}
 }
 
 func (o TarImageSet) Export(foundImages *UnprocessedImageURLs,

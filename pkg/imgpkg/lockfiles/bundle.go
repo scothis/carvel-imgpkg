@@ -33,12 +33,7 @@ func IsBundle(img regv1.Image) (bool, error) {
 	return present, nil
 }
 
-func GetReferencedImages(bundleRef regname.Reference, regOpts image.RegistryOpts) ([]ImageDesc, error) {
-	reg, err := image.NewRegistry(regOpts)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create a registry with the options %v: %v", regOpts, err)
-	}
-
+func GetReferencedImages(bundleRef regname.Reference, reg image.Registry) ([]ImageDesc, error) {
 	img, err := reg.Image(bundleRef)
 	if err != nil {
 		return nil, err

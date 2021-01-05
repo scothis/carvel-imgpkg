@@ -70,39 +70,41 @@ func (o *CopyOptions) Run() error {
 	if !o.hasOneSrc() {
 		return fmt.Errorf("Expected either --lock, --bundle (-b), --image (-i), or --from-tar as a source")
 	}
-
 	if !o.hasOneDest() {
 		return fmt.Errorf("Expected either --to-tar or --to-repo")
 	}
 
-	if o.isTarSrc() && o.isTarDst() {
-		return fmt.Errorf("Cannot use tar source (--from-tar) with tar destination (--to-tar)")
-	}
-
 	logger := ctlimg.NewLogger(os.Stderr)
 	prefixedLogger := logger.NewPrefixedWriter("copy | ")
+
 	registry, err := ctlimg.NewRegistry(o.RegistryFlags.AsRegistryOpts())
 	if err != nil {
 		return fmt.Errorf("Unable to create a registry with the options %v: %v", o.RegistryFlags.AsRegistryOpts(), err)
 	}
+
 	imageSet := ctlimgset.NewImageSet(o.Concurrency, prefixedLogger)
 
-	var importRepo regname.Repository
-	var unprocessedImageUrls *ctlimgset.UnprocessedImageURLs
 	var bundleURL string
 	var processedImages *ctlimgset.ProcessedImages
 	switch {
 	case o.isTarSrc():
-		importRepo, err = regname.NewRepository(o.RepoDst)
+		if o.isTarDst() {
+			return fmt.Errorf("Cannot use tar source (--from-tar) with tar destination (--to-tar)")
+		}
+
+		importRepo, err := regname.NewRepository(o.RepoDst)
 		if err != nil {
 			return fmt.Errorf("Building import repository ref: %s", err)
 		}
 		tarImageSet := ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger)
+
 		processedImages, bundleURL, err = tarImageSet.Import(o.TarFlags.TarSrc, importRepo, registry)
-	case o.isRepoSrc() && o.isTarDst():
-		if o.LockOutputFlags.LockFilePath != "" {
-			return fmt.Errorf("cannot output lock file with tar destination")
+		if err != nil {
+			return err
 		}
+
+	case o.isRepoSrc():
+		var unprocessedImageUrls *ctlimgset.UnprocessedImageURLs
 
 		unprocessedImageUrls, bundleURL, err = o.GetUnprocessedImageURLs()
 		if err != nil {
@@ -116,37 +118,36 @@ func (o *CopyOptions) Run() error {
 			}
 		}
 
-		tarImageSet := ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger)
-		err = tarImageSet.Export(unprocessedImageUrls, o.TarFlags.TarDst, registry) // download to tar
-	case o.isRepoSrc() && o.isRepoDst():
-		unprocessedImageUrls, bundleURL, err = o.GetUnprocessedImageURLs()
-		if err != nil {
-			return err
-		}
+		if o.isTarDst() {
+			if o.LockOutputFlags.LockFilePath != "" {
+				return fmt.Errorf("cannot output lock file with tar destination")
+			}
 
-		if bundleURL != "" {
-			unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleURL, registry)
+			tarImageSet := ctlimgset.NewTarImageSet(imageSet, o.Concurrency, prefixedLogger)
+
+			err = tarImageSet.Export(unprocessedImageUrls, o.TarFlags.TarDst, registry) // download to tar
 			if err != nil {
 				return err
 			}
 		}
+		if o.isRepoDst() {
+			importRepo, err := regname.NewRepository(o.RepoDst)
+			if err != nil {
+				return fmt.Errorf("Building import repository ref: %s", err)
+			}
 
-		importRepo, err = regname.NewRepository(o.RepoDst)
-		if err != nil {
-			return fmt.Errorf("Building import repository ref: %s", err)
+			processedImages, err = imageSet.Relocate(unprocessedImageUrls, importRepo, registry)
+			if err != nil {
+				return err
+			}
 		}
-		processedImages, err = imageSet.Relocate(unprocessedImageUrls, importRepo, registry)
-	}
-
-	if err != nil {
-		return err
 	}
 
 	if o.LockOutputFlags.LockFilePath != "" {
-		err = o.writeLockOutput(processedImages, bundleURL)
+		return o.writeLockOutput(processedImages, bundleURL)
 	}
 
-	return err
+	return nil
 }
 
 func (o *CopyOptions) isTarSrc() bool {

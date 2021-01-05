@@ -18,12 +18,6 @@ import (
 
 const BundleConfigLabel = "dev.carvel.imgpkg.bundle"
 
-type Bundle struct {
-	URL   string
-	Tag   string
-	Image regv1.Image
-}
-
 func IsBundle(img regv1.Image) (bool, error) {
 	cfg, err := img.ConfigFile()
 	if err != nil {

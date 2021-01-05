@@ -1,15 +1,13 @@
 package cmd
 
 import (
-	"fmt"
-	"strings"
-
 	regname "github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/k14s/imgpkg/pkg/imgpkg/bundle"
 	"github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimg "github.com/k14s/imgpkg/pkg/imgpkg/image"
 	ctlimgset "github.com/k14s/imgpkg/pkg/imgpkg/imageset"
+	"github.com/k14s/imgpkg/pkg/imgpkg/lockconfig"
 	lf "github.com/k14s/imgpkg/pkg/imgpkg/lockfiles"
 )
 
@@ -25,111 +23,103 @@ func (o Copy2) Foo(registry ctlimg.Registry) (*ctlimgset.UnprocessedImageURLs, s
 		return nil, "", err
 	}
 
-	if bundleURL != "" {
-		unprocessedImageUrls, err = checkBundleRepoForCollocatedImages(unprocessedImageUrls, bundleURL, registry)
-		if err != nil {
-			return nil, "", err
-		}
-	}
-
 	return unprocessedImageUrls, bundleURL, nil
 }
 
 func (o Copy2) getUnprocessedImageURLs(reg ctlimg.Registry) (*ctlimgset.UnprocessedImageURLs, string, error) {
 	unprocessedImageURLs := ctlimgset.NewUnprocessedImageURLs()
-	var bundleRef string
 
 	switch {
 	case o.LockInputFlags.LockFilePath != "":
-		lock, err := lf.ReadLockFile(o.LockInputFlags.LockFilePath)
+		bundleLock, imagesLock, err := lockconfig.NewLockFromPath(o.LockInputFlags.LockFilePath)
 		if err != nil {
 			return nil, "", err
 		}
+
 		switch {
-		case lock.Kind == lf.BundleLockKind:
-			bundleLock, err := lf.ReadBundleLockFile(o.LockInputFlags.LockFilePath)
+		case bundleLock != nil:
+			bundle := bundle.NewBundle(bundleLock.Bundle.Image, reg)
+
+			imagesLock, err := bundle.ImagesLockLocalized()
 			if err != nil {
 				return nil, "", err
 			}
 
-			bundleRef = bundleLock.Spec.Image.DigestRef
-			parsedRef, img, err := getRefAndImage(bundleRef, &reg)
-			if err != nil {
-				return nil, "", err
+			for _, img := range imagesLock.Images {
+				unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: img.Image})
 			}
 
-			if err := checkIfBundle(img, true, fmt.Errorf("Expected image flag when given an image reference. Please run with -i instead of -b, or use -b with a bundle reference")); err != nil {
-				return nil, "", err
-			}
+			unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{
+				URL: bundleLock.Bundle.Image,
+				Tag: bundleLock.Bundle.Tag,
+			})
 
-			images, err := lf.GetReferencedImages(parsedRef, reg)
-			if err != nil {
-				return nil, "", err
-			}
+			return unprocessedImageURLs, bundleLock.Bundle.Image, nil
 
-			bundle := lf.Bundle{bundleRef, bundleLock.Spec.Image.OriginalTag, img}
-			collectURLs(images, &bundle, unprocessedImageURLs)
+		case imagesLock != nil:
+			// TODO imagesLock
+			// bundles, err := imgLock.CheckForBundles(reg)
+			// if err != nil {
+			// 	return nil, "", fmt.Errorf("Checking image lock for bundles: %s", err)
+			// }
 
-		case lock.Kind == lf.ImagesLockKind:
-			imgLock, err := lf.ReadImageLockFile(o.LockInputFlags.LockFilePath)
-			if err != nil {
-				return nil, "", err
-			}
+			// if len(bundles) != 0 {
+			// 	return nil, "", fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
+			// }
 
-			bundles, err := imgLock.CheckForBundles(reg)
-			if err != nil {
-				return nil, "", fmt.Errorf("Checking image lock for bundles: %s", err)
-			}
+			// for _, img := range imgLock.Spec.Images {
+			// 	unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: img.Image})
+			// }
+			// return unprocessedImageURLs, "", nil
 
-			if len(bundles) != 0 {
-				return nil, "", fmt.Errorf("Expected image lock to not contain bundle reference: '%v'", strings.Join(bundles, "', '"))
-			}
-
-			collectURLs(imgLock.Spec.Images, nil, unprocessedImageURLs)
 		default:
-			return nil, "", fmt.Errorf("Unexpected lock kind. Expected BundleLock or ImagesLock, got: %v", lock.Kind)
+			panic("Unreachable")
 		}
 
 	case o.ImageFlags.Image != "":
-		parsedRef, img, err := getRefAndImage(o.ImageFlags.Image, &reg)
-		if err != nil {
-			return nil, "", err
-		}
+		// parsedRef, img, err := getRefAndImage(o.ImageFlags.Image, &reg)
+		// if err != nil {
+		// 	return nil, "", err
+		// }
 
-		if err := checkIfBundle(img, false, fmt.Errorf("Expected bundle flag when copying a bundle, please use -b instead of -i")); err != nil {
-			return nil, "", err
-		}
+		// if err := checkIfBundle(img, false, fmt.Errorf("Expected bundle flag when copying a bundle, please use -b instead of -i")); err != nil {
+		// 	return nil, "", err
+		// }
 
-		imageTag := getTag(parsedRef)
-		unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{o.ImageFlags.Image, imageTag})
+		// imageTag := getTag(parsedRef)
+		// unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{o.ImageFlags.Image, imageTag})
+		// return unprocessedImageURLs, "", nil
 
 	default:
-		bundleRef = o.BundleFlags.Bundle
-		parsedRef, img, err := getRefAndImage(bundleRef, &reg)
+		bundle := bundle.NewBundle(o.BundleFlags.Bundle, reg)
+
+		// TODO switch to using fallback URLs for each image
+		// instead of trying to use localized bundle URLs here
+		imagesLock, err := bundle.ImagesLockLocalized()
 		if err != nil {
 			return nil, "", err
 		}
 
-		bundleTag := getTag(parsedRef)
-		refWithDigest, err := getRefWithDigest(parsedRef, img)
+		for _, img := range imagesLock.Images {
+			unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: img.Image})
+		}
+
+		digestURL, err := bundle.DigestRef()
 		if err != nil {
 			return nil, "", err
 		}
 
-		if err := checkIfBundle(img, true, fmt.Errorf("Expected image flag when given an image reference. Please run with -i instead of -b, or use -b with a bundle reference")); err != nil {
-			return nil, "", err
-		}
-
-		images, err := lf.GetReferencedImages(refWithDigest, reg)
+		tag, err := bundle.Tag()
 		if err != nil {
 			return nil, "", err
 		}
 
-		bundle := lf.Bundle{bundleRef, bundleTag, img}
-		collectURLs(images, &bundle, unprocessedImageURLs)
+		unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: digestURL, Tag: tag})
+
+		return unprocessedImageURLs, digestURL, nil
 	}
 
-	return unprocessedImageURLs, bundleRef, nil
+	panic("Unreachable")
 }
 
 // Get the parsed image reference and associated image struct from a registry
@@ -145,19 +135,6 @@ func getRefAndImage(ref string, reg *image.Registry) (regname.Reference, regv1.I
 	}
 
 	return parsedRef, img, err
-}
-
-// Get image reference with digest
-func getRefWithDigest(parsedRef regname.Reference, img regv1.Image) (regname.Reference, error) {
-	digest, err := img.Digest()
-	if err != nil {
-		return nil, err
-	}
-	refWithDigest, err := regname.NewDigest(fmt.Sprintf("%s@%s", parsedRef.Context().Name(), digest))
-	if err != nil {
-		return nil, err
-	}
-	return refWithDigest, err
 }
 
 // Get the tag from an image reference. Returns empty string
@@ -185,49 +162,4 @@ func checkIfBundle(img regv1.Image, expectsBundle bool, errMsg error) error {
 	}
 
 	return nil
-}
-
-// And images and bundle reference to unprocessedImageURLs.
-// Exclude passing Bundle reference by passing nil.
-func collectURLs(images []lf.ImageDesc, bundle *lf.Bundle, unprocessedImageURLs *ctlimgset.UnprocessedImageURLs) {
-	for _, img := range images {
-		unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: img.Image})
-	}
-	if bundle != nil {
-		unprocessedImageURLs.Add(ctlimgset.UnprocessedImageURL{URL: bundle.URL, Tag: bundle.Tag})
-	}
-}
-
-func checkBundleRepoForCollocatedImages(foundImages *ctlimgset.UnprocessedImageURLs, bundleURL string, registry ctlimg.Registry) (*ctlimgset.UnprocessedImageURLs, error) {
-	checkedURLs := ctlimgset.NewUnprocessedImageURLs()
-	bundleRef, err := regname.ParseReference(bundleURL)
-	if err != nil {
-		return nil, err
-	}
-	bundleRepo := bundleRef.Context().Name()
-
-	for _, img := range foundImages.All() {
-		if img.URL == bundleURL {
-			checkedURLs.Add(img)
-			continue
-		}
-
-		newURL, err := bundle.ImageWithRepository(img.URL, bundleRepo)
-		if err != nil {
-			return nil, err
-		}
-		ref, err := regname.NewDigest(newURL, regname.StrictValidation)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = registry.Generic(ref)
-		if err == nil {
-			checkedURLs.Add(ctlimgset.UnprocessedImageURL{newURL, img.Tag})
-		} else {
-			checkedURLs.Add(img)
-		}
-	}
-
-	return checkedURLs, nil
 }

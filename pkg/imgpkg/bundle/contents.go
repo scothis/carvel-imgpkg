@@ -14,6 +14,11 @@ import (
 	"github.com/k14s/imgpkg/pkg/imgpkg/plainimage"
 )
 
+const (
+	ImgpkgDir      = ".imgpkg"
+	ImagesLockFile = "images.yml"
+)
+
 type Contents struct {
 	paths         []string
 	excludedPaths []string

@@ -33,8 +33,6 @@ type Opts struct {
 	ResponseHeaderTimeout time.Duration
 }
 
-//TODO: move ImagesMetadata here??
-
 type Registry struct {
 	opts    []regremote.Option
 	refOpts []regname.Option

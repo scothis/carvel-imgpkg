@@ -46,13 +46,16 @@ func assertPlainImageRefIsAnImage(ref string, imagesDescriptor ImagesDescriptor)
 	if err != nil {
 		return err
 	}
-	head, err := imagesDescriptor.Head(plainImageRef)
+
+	imageDescriptor, err := imagesDescriptor.Head(plainImageRef)
 	if err != nil {
 		return err
 	}
-	if !head.MediaType.IsImage() {
-		return fmt.Errorf("Only accepts images as a PlainImage")
+
+	if !imageDescriptor.MediaType.IsImage() {
+		return fmt.Errorf("Expected an Image but got: %s", string(imageDescriptor.MediaType))
 	}
+
 	return nil
 }
 
@@ -117,18 +120,18 @@ func (i *PlainImage) Fetch() (regv1.Image, error) {
 		return nil, err
 	}
 
-	get, err := i.registry.Get(i.parsedRef)
+	imgDescriptor, err := i.registry.Get(i.parsedRef)
 	if err != nil {
-		return nil, fmt.Errorf("Collecting images: %s", err)
+		return nil, fmt.Errorf("Fetching image: %s", err)
 	}
 
-	if !get.MediaType.IsImage() {
+	if !imgDescriptor.MediaType.IsImage() {
 		return nil, notAnImageError{}
 	}
 
-	i.fetchedImage, err = get.Image()
+	i.fetchedImage, err = imgDescriptor.Image()
 	if err != nil {
-		return nil, fmt.Errorf("Collecting images: %s", err)
+		return nil, fmt.Errorf("Fetching image: %s", err)
 	}
 
 	digest, err := i.fetchedImage.Digest()

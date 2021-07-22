@@ -47,9 +47,14 @@ func assertPlainImageRefIsAnImage(ref string, imagesDescriptor ImagesDescriptor)
 		return err
 	}
 
+	//TODO think about / confirm whether this fallback logic is required
 	imageDescriptor, err := imagesDescriptor.Head(plainImageRef)
 	if err != nil {
-		return err
+		remoteImageDescriptor, err := imagesDescriptor.Get(plainImageRef)
+		if err != nil {
+			return err
+		}
+		imageDescriptor = remoteImageDescriptor.Descriptor.DeepCopy()
 	}
 
 	if !imageDescriptor.MediaType.IsImage() {
